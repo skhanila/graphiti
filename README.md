@@ -256,6 +256,9 @@ pip install graphiti-core[falkordb,anthropic,google-genai]
 
 # Install with Amazon Neptune
 pip install graphiti-core[neptune]
+
+# Install with Amazon Bedrock (embeddings + reranking)
+pip install graphiti-core[bedrock]
 ```
 
 ## Default to Low Concurrency; LLM Provider 429 Rate Limit Errors
@@ -538,6 +541,56 @@ graphiti = Graphiti(
 The Gemini reranker uses the `gemini-2.5-flash-lite` model by default, which is optimized for
 cost-effective and low-latency classification tasks. It uses the same boolean classification approach as the OpenAI
 reranker, leveraging Gemini's log probabilities feature to rank passage relevance.
+
+
+## Using Graphiti with Amazon Bedrock
+
+Graphiti supports Amazon Bedrock for embeddings (Titan Embeddings V2) and reranking (Claude on Bedrock). All inference stays within your AWS account — no data is sent to third-party APIs.
+
+Install Graphiti with the Bedrock extra:
+
+```bash
+pip install "graphiti-core[bedrock]"
+
+# or with uv
+uv add "graphiti-core[bedrock]"
+```
+
+```python
+from graphiti_core import Graphiti
+from graphiti_core.embedder.bedrock import BedrockEmbedder, BedrockEmbedderConfig
+from graphiti_core.cross_encoder.bedrock_reranker_client import BedrockRerankerClient
+from graphiti_core.llm_client.anthropic_client import AnthropicClient
+from graphiti_core.llm_client.config import LLMConfig
+from anthropic import AsyncAnthropicBedrock
+
+# LLM client (Claude on Bedrock)
+bedrock_llm = AsyncAnthropicBedrock(aws_region="us-west-2")
+llm_client = AnthropicClient(
+    config=LLMConfig(api_key="bedrock", model="us.anthropic.claude-sonnet-4-6"),
+    client=bedrock_llm,
+)
+
+# Embedder (Titan Embeddings V2)
+embedder = BedrockEmbedder(
+    config=BedrockEmbedderConfig(aws_region="us-west-2")
+)
+
+# Reranker (Claude on Bedrock)
+reranker = BedrockRerankerClient(aws_region="us-west-2")
+
+# Initialize Graphiti with Bedrock providers
+graphiti = Graphiti(
+    "bolt://localhost:7687",
+    "neo4j",
+    "password",
+    llm_client=llm_client,
+    embedder=embedder,
+    cross_encoder=reranker,
+)
+```
+
+Authentication uses the standard AWS credential chain (environment variables, `~/.aws/credentials`, IAM role, or `aws_profile` parameter). No API keys required.
 
 ## Using Graphiti with OpenAI-compatible providers and local LLMs
 
